@@ -1,0 +1,37 @@
+pyghidra-decaf
+Copyright 2026 Nightwing
+
+This product is licensed under the Apache License, Version 2.0
+(see the LICENSE file in the root of this repository).
+
+------------------------------------------------------------------------
+Third-party attributions
+------------------------------------------------------------------------
+
+This product includes or depends on software developed by third parties.
+The full list is generated at release time from the resolved dependency
+graph; the entries below cover the principal Apache-2.0- and MPL-licensed
+dependencies known at the time of the initial release.
+
+  * Ghidra (https://ghidra-sre.org/)
+    Copyright 2017 National Security Agency
+    Licensed under the Apache License, Version 2.0.
+
+  * pyghidra (https://github.com/NationalSecurityAgency/ghidra)
+    Copyright 2017 National Security Agency
+    Licensed under the Apache License, Version 2.0.
+
+  * JPype (https://github.com/jpype-project/jpype)
+    Copyright 2004-2024 JPype contributors
+    Licensed under the Apache License, Version 2.0.
+
+  * certifi (https://github.com/certifi/python-certifi)
+    Licensed under the Mozilla Public License, Version 2.0.
+
+Other dependencies (e.g., pydantic, httpx, starlette, uvicorn,
+setuptools) are MIT- or BSD-licensed and do not require attribution in
+this NOTICE file but their license terms still apply; see the metadata
+in each installed package for details.
+
+This NOTICE is regenerated as part of each release per the workflow
+documented in docs/plans/2026-05-12-oss-release-design.md §3.

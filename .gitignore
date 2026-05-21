@@ -1,0 +1,63 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+tests/fixtures/**/*.egg-info/
+
+# hatch-vcs generated
+pyghidra_decaf/src/pyghidra_decaf/_version.py
+# JVM crash reports
+hs_err_pid*.log
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local development configuration
+.python-version
+
+# joe backup files
+*~
+
+# Local Claude workspace
+.claude/
+
+# Working dev artifacts (internal-only; never committed)
+working-reqs.txt
+
+# Agent transcripts — ignore the directory but keep the audit report tracked
+/agent-responses/*
+!/agent-responses/oss-audit-report.md
