@@ -211,7 +211,7 @@ def test_generated_java_stub_exists(tmp_path: Path) -> None:
     decaf_setup() must write TestConsumerPlugin.java into the config dir.
 
     Uses HOME=tmp_path so each run writes into a fresh tree, preventing a
-    prior run's artifact from producing a false positive (P1-4).
+    prior run's artifact from producing a false positive.
     """
     if not _ghidra_available():
         pytest.skip('GHIDRA_INSTALL_DIR not set')
@@ -338,7 +338,7 @@ def test_without_fixture_consumer_not_in_plugin_types(tmp_path: Path) -> None:
 
     PYTHONNOUSERSITE + PYTHONPATH manipulation is NOT sufficient for this
     because those env-vars do not exclude the venv's own site-packages.  A
-    fully separate venv is the only reliable isolation strategy (P1-5/N-2).
+    fully separate venv is the only reliable isolation strategy.
     """
     if not _ghidra_available():
         pytest.skip('GHIDRA_INSTALL_DIR not set')

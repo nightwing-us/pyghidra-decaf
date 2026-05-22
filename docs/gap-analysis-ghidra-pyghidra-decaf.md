@@ -1,8 +1,6 @@
 # Gap Analysis: Ghidra Java Plugins vs PyGhidra vs PyGhidra Decaf
 
-**Date:** 2026-05-12  
-**Scope:** Extension point coverage and capability comparison across three plugin development approaches  
-**Sources:** Primary analysis of Ghidra plugin API (NSA documentation), pyhidra/pyghidra implementations, and pyghidra_decaf codebase
+**Scope:** Extension point coverage and capability comparison across three plugin development approaches.
 
 ---
 
@@ -25,8 +23,6 @@ Ghidra's plugin discovery (`ghidra.util.classfinder.ClassSearcher`) operates at 
 1. **No `.class` artifact:** JPype proxies are Python callables wrapping JVM object references; they have no compiled form on the filesystem.
 2. **Annotation scanning is bytecode-level:** The discovery mechanism uses bytecode introspection (Java reflection on `.class` files), not runtime method/class inspection.
 3. **Startup ordering:** Plugin discovery runs in Ghidra's bootstrap sequence, before any Python code or `pyghidra.start()` invocation.
-
-**Citation:** `ghidra-plugin-capabilities.md` §1.7 (ClassSearcher mechanics) and `pyghidra-capabilities.md` §"JPype Class-Proxy Mechanics" (proxy limitations).
 
 ---
 
@@ -66,8 +62,6 @@ After the JVM starts and Ghidra's plugin system instantiates the generated stub 
    - JPype's `Consumer @` wrapper forwards the Java stub instance to the Python class constructor.
    - Python plugin instance is created with a reference to the Java stub.
 
-**Citation:** `pyghidra-decaf-capabilities.md` §"Architecture: Python-to-Java Plugin Bridge" and §"Capability Matrix".
-
 ### Phase 3: Lifecycle Delegation
 
 **Files:** `java/DecafPlugin.java`, `java/DecafProgramPlugin.java`
@@ -77,8 +71,6 @@ The base Java classes define handler fields for every Ghidra plugin lifecycle me
 - **Plugin lifecycle:** `dispose()`, `processEvent()`, `readConfigState()`, `writeConfigState()`, `readDataState()`, `writeDataState()`, `canClose()`, `prepareToSave()`, `saveData()`, `service_added()`, `service_removed()`.
 - **Program-specific lifecycle:** `_program_activated()`, `_program_closed()`, `_location_changed()`, `_selection_changed()`, `_highlight_changed()`.
 - **State persistence:** config state (tool-scoped), data state (program-scoped), transient state (per-program UI state), undo/redo state.
-
-**Citation:** `pyghidra-decaf-capabilities.md` §"Capability Matrix" (lifecycle hooks enumerated).
 
 ---
 
@@ -119,32 +111,15 @@ The base Java classes define handler fields for every Ghidra plugin lifecycle me
 
 **For pure-Python plugin development, Decaf enables:**
 
-1. **Plugin lifecycle management** — Write a Python class inheriting from `DecafPlugin` or `DecafProgramPlugin`; all lifecycle callbacks (`init()`, `disposed()`, `programActivated()`, state persistence) are automatically wired via Java stubs.
-   - **Evidence:** `decaf/plugin.py:68–338` defines full callback hierarchy; `decaf_setup.py` template generates stubs that invoke them.
-
-2. **Service and event metadata** — Declare services and events via `DecafPluginInfo` constructor arguments; the generated Java `@PluginInfo` annotation automatically registers them with Ghidra.
-   - **Evidence:** `launch.py:48–65` (DecafPluginInfo fields); `decaf_setup.py:245–264` (template substitution).
-
-3. **State persistence across tool session** — `readConfigState()` / `writeConfigState()` (tool-scoped) and `readDataState()` / `writeDataState()` (program-scoped) are hooked to Java's `SaveState` mechanism automatically.
-   - **Evidence:** `DecafPlugin.java:148–180` defines handler fields; Python overrides set them at runtime.
-
-4. **Plugin distribution as pure-Python wheels** — No Java development; install via pip; `decaf_setup()` auto-generates bytecode on first launch.
-   - **Evidence:** `bootstrap.py:133–142` (subprocess iteration); `decaf_setup.py:267–275` (extension registration).
-
-5. **Transient state (per-program UI state)** — Methods like `getTransientState()` / `restoreTransientState()` allow saving/restoring UI state when the user switches between programs.
-   - **Evidence:** `DecafPlugin.java:189–204` defines handler fields.
-
+1. **Plugin lifecycle management** — Write a Python class inheriting from `DecafPlugin` or `DecafProgramPlugin`; all lifecycle callbacks (`init()`, `disposed()`, `programActivated()`, state persistence) are automatically wired via Java stubs. See `decaf/plugin.py` for the full callback hierarchy and `decaf_setup.py` for the generator template.
+2. **Service and event metadata** — Declare services and events via `DecafPluginInfo` constructor arguments (`launch.py`); the generated Java `@PluginInfo` annotation automatically registers them with Ghidra.
+3. **State persistence across tool session** — `readConfigState()` / `writeConfigState()` (tool-scoped) and `readDataState()` / `writeDataState()` (program-scoped) are hooked to Java's `SaveState` mechanism automatically via handler fields on `DecafPlugin.java`.
+4. **Plugin distribution as pure-Python wheels** — No Java development; install via pip; `decaf_setup()` auto-generates bytecode on first launch (`bootstrap.py`, `decaf_setup.py`).
+5. **Transient state (per-program UI state)** — `getTransientState()` / `restoreTransientState()` allow saving/restoring UI state when the user switches between programs.
 6. **Undo/redo integration** — Python plugins can participate in Ghidra's undo/redo system via `getUndoRedoState()` / `restoreUndoRedoState()`.
-   - **Evidence:** `DecafPlugin.java:210–223` defines handler fields.
-
-7. **Docking action registration** — Can instantiate `DockingAction` via JPype and register it with the tool; Decaf provides a stub module for this.
-   - **Evidence:** `decaf/docking.py` (stub); plugin can call `self.tool.addAction(action)` directly.
-
-8. **Custom Java source shipping** — Include additional `.java` files in `DecafExtensionInfo.java_source`; they compile alongside generated stubs.
-   - **Evidence:** `decaf_setup.py:269–274` (copies custom Java to extension dir); `launch.py:80` (field definition).
-
-9. **Headless plugin execution** — Decaf plugins load and run during `analyzeHeadless` invocations.
-   - **Evidence:** `bootstrap.py` integrates with pyghidra's startup; plugins load in any JVM instance.
+7. **Docking action registration** — Can instantiate `DockingAction` via JPype and register it with the tool; `decaf/docking.py` provides a stub module and plugins can call `self.tool.addAction(action)` directly.
+8. **Custom Java source shipping** — Include additional `.java` files in `DecafExtensionInfo.java_source`; `decaf_setup.py` copies them alongside generated stubs for compilation.
+9. **Headless plugin execution** — Decaf plugins load and run during `analyzeHeadless` invocations via pyghidra's startup hooks.
 
 ---
 
@@ -156,68 +131,57 @@ The base Java classes define handler fields for every Ghidra plugin lifecycle me
    - **Why needed:** Participate in auto-analysis (fires when bytes/instructions/functions change).
    - **Current blocker:** No `DecafAnalyzer` base class or codegen template.
    - **Path to closure:** Generate `AbstractAnalyzer` subclass per Python class, following the same pattern as `DecafPlugin` → `DecafProgramPlugin`.
-   - **Evidence:** `pyghidra-decaf-capabilities.md` §"Constraints" (not implemented); `ghidra-plugin-capabilities.md` §2.2 (Analyzer interface defined).
 
 2. **Loader** (`ghidra.app.util.opinion.Loader`)
    - **Why needed:** Support new executable formats; participate in file import.
    - **Current blocker:** No `DecafLoader` base class or codegen template.
    - **Path to closure:** Generate `AbstractLibrarySupportLoader` subclass, template similar to plugin stubs.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §2.3 (Loader interface); `pyghidra-decaf-capabilities.md` §"Constraints" (not implemented).
 
 3. **Exporter** (`ghidra.app.util.exporter.Exporter`)
    - **Why needed:** Export programs to custom file formats.
    - **Current blocker:** No `DecafExporter` base class or codegen template.
    - **Path to closure:** Generate `AbstractExporter` subclass.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §2.5 (Exporter interface).
 
 4. **GFileSystem** (`ghidra.formats.gfilesystem.GFileSystem`)
    - **Why needed:** Support container/archive virtual filesystems.
    - **Current blocker:** No `DecafGFileSystem` base class; requires factory pattern.
    - **Path to closure:** Generate `AbstractFileSystem<T>` subclass + factory.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §2.4 (GFileSystem interface).
 
 5. **FieldFactory** (`ghidra.app.util.viewer.field.FieldFactory`)
    - **Why needed:** Add custom columns to the Listing view.
    - **Current blocker:** No `DecafFieldFactory` base class or codegen template.
    - **Path to closure:** Codegen `FieldFactory` subclass; template must wire all abstract methods.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §2.9 (FieldFactory interface).
 
 6. **Custom PluginEvent Subclasses**
    - **Why needed:** Publish/subscribe domain-specific events between plugins.
    - **Current blocker:** Codegen does not emit `PluginEvent` subclasses.
    - **Path to closure:** Add template for `PluginEvent` subclass generation in `decaf_setup.py`.
-   - **Evidence:** `pyghidra-decaf-capabilities.md` §"Constraints" ("custom PluginEvent types...needs Java shim").
 
 7. **ComponentProvider** (Dockable Panels)
    - **Why needed:** Create persistent dockable UI panels (e.g., analysis results, custom views).
    - **Current blocker:** `decaf/docking.py` is a stub; no Python base class or codegen.
    - **Path to closure:** Create `DecafComponentProvider` base class; codegen template similar to `DecafPlugin`.
-   - **Evidence:** `pyghidra-decaf-capabilities.md` §"Constraints" ("Docking Actions...stub only").
 
 ### Hard Limits (JVM-Level Constraints)
 
 1. **Single JVM per Process**
    - **Why it matters:** JPype cannot tear down and restart the JVM in-process. Once started, it stays running.
-   - **Impact:** Each Decaf bootstrap iteration spawns a fresh subprocess. This is by design (see `bootstrap.py:7–9`, commit `46e37f6`).
+   - **Impact:** Each Decaf bootstrap iteration spawns a fresh subprocess (see `bootstrap.py`). This is by design.
    - **Mitigation:** Not fixable without replacing JPype; acceptable for plugin development (you don't restart JVM per use).
-   - **Evidence:** `pyghidra-decaf-capabilities.md` §"Bootstrap Subprocess Model"; `bootstrap.py:136–142`.
 
 2. **Swing Thread Discipline**
    - **Why it matters:** All GUI code must run on Ghidra's event-dispatch thread; plugin code must not block.
    - **Impact:** Python code runs on EDT when called from plugin callbacks. Long operations must delegate to `tool.executeBackgroundCommand()` or spawn threads.
    - **Mitigation:** None required; same discipline as Java plugins. Decaf provides `GhidraTransactionContext` for safe program modification.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §6 ("Swing thread discipline").
 
 3. **JDK Pinning to Ghidra Version**
    - **Why it matters:** Ghidra 11.x targets JDK 17+. Extensions are compiled for specific Ghidra versions.
    - **Impact:** A Decaf plugin wheel built for Ghidra 11.2 will not load in Ghidra 11.3. Must rebuild per Ghidra release.
    - **Mitigation:** Ship `version=` in `extension.properties` matching the Ghidra install. Decaf does this automatically.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §6 ("Extension version lock").
 
 4. **Closed Extension Points**
    - The Ghidra Server protocol (`ghidraSvr`), headless analyzer command-line parser, and SLA file format are not pluggable.
    - **Impact:** Cannot extend these surfaces from Python or Decaf.
-   - **Evidence:** `ghidra-plugin-capabilities.md` §6 ("Closed extension points").
 
 ---
 
@@ -268,16 +232,6 @@ The base Java classes define handler fields for every Ghidra plugin lifecycle me
 1. **Which extension point has highest ROI for codegen?** Analyzer? Loader? ComponentProvider? Survey users.
 2. **Can Decaf emit PluginEvent subclass stubs?** Adding a second template to `decaf_setup.py` would unblock custom event types.
 3. **Should Decaf provide Python wrappers for common Ghidra patterns?** E.g., `DockingAction` builder, `ComponentProvider` convenience class, `Task` runner.
-4. **Can the bootstrap model be optimized?** Current 3-iteration limit (commit `46e37f6`) works but is observable. Could one compilation pass handle all plugins?
+4. **Can the bootstrap model be optimized?** The current multi-iteration loop works but is observable. Could one compilation pass handle all plugins?
 5. **Should Decaf validate `@PluginInfo` metadata at setup time?** E.g., check that listed services/events are valid Java classes.
 6. **How to version Decaf plugins against Ghidra releases?** Document the strategy; consider `extension.properties` version inference.
-
----
-
-## Sources
-
-- **ghidra-plugin-capabilities.md** — Comprehensive reference of Ghidra's plugin API surface, ClassSearcher discovery mechanism, and all extension points (Plugin, Analyzer, Loader, GFileSystem, etc.).
-- **pyghidra-capabilities.md** — Technical analysis of PyGhidra's architecture, JPype proxy limitations, and why vanilla PyGhidra cannot register plugins.
-- **pyghidra-decaf-capabilities.md** — Complete specification of Decaf's two-phase initialization (Java codegen + reflection binding), lifecycle callbacks, capability matrix, and test suite.
-- **Ghidra Repository (NSA)** — Primary source for plugin API (`ghidra.framework.plugintool.*`, `ghidra.app.services.*`, `ClassSearcher`).
-- **pyhidra / pyghidra (GitHub/on-disk)** — Reference implementations of JPype-based bridges and script providers.

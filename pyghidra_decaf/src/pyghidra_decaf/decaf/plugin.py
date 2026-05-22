@@ -85,7 +85,6 @@ class DecafPlugin:
         self._plugin = plugin
 
         self._docking_actions: List[DockingAction] = []
-        self._logged_completions_change = False
         try:
             plugin_cls = _get_private_class(plugin_base)
         except Exception as e:

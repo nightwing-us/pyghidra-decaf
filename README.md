@@ -32,21 +32,20 @@ uv run pytest
 ### Type Checking
 
 ```bash
-uv run mypy src tests
+uv run mypy
 ```
 
 ### Linting and Formatting
 
 ```bash
-uv run black src tests
-uv run isort src tests
 uv run ruff check src tests
+uv run ruff format src tests
 ```
 
 ### Building the Package
 
 ```bash
-uv pip build
+uv build
 ```
 
 ## License

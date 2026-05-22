@@ -162,7 +162,7 @@ class GhidraVariable(GhidraNamedEntity):
                 count = int(count_str)
             except ValueError:
                 raise ValueError(
-                    f'[LM]: Error parsing array length from type: {type_name}',
+                    f'Error parsing array length from type: {type_name}',
                 )
             else:
                 sugg_type = ArrayDataType(

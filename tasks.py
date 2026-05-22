@@ -1,13 +1,14 @@
 """
-invoke tasks — local developer workflow for building and publishing pyghidra_decaf.
+invoke tasks — local developer workflow for building pyghidra_decaf.
 
-Publishing to the PyPI Package Registry requires a ~/.pypirc file
-with a [pyghidra_decaf] section.  See PUBLISHING.md for the full setup guide.
+Releases to PyPI are published from GitHub Actions via the OIDC trusted-
+publisher flow in .github/workflows/release.yml on every v* tag push; this
+file only covers the local build and (optionally) a manual twine upload.
 
 Quick reference:
   inv install-tools   install build and twine into the current environment
   inv build           clean then build wheel + sdist into pyghidra_decaf/dist/
-  inv publish         upload pyghidra_decaf/dist/* to the registry via twine
+  inv publish         upload pyghidra_decaf/dist/* to PyPI via twine
   inv clean           remove pyghidra_decaf/dist/, build artifacts, and egg-info
 """
 
@@ -40,9 +41,11 @@ def build(ctx):
 
 @task
 def publish(ctx):
-    """Upload pyghidra_decaf/dist/* to the package registry via twine.
+    """Manually upload pyghidra_decaf/dist/* to PyPI via twine.
 
-    Reads the repository URL and credentials from ~/.pypirc under the
-    [pyghidra_decaf] section.  Run `inv build` first if dist/ is empty.
+    Normal releases are published automatically by .github/workflows/release.yml
+    when a v* tag is pushed; use this task only for one-off local uploads.
+    Reads credentials from ~/.pypirc (or TWINE_USERNAME / TWINE_PASSWORD).
+    Run `inv build` first if dist/ is empty.
     """
-    ctx.run("python -m twine upload --repository pyghidra_decaf pyghidra_decaf/dist/*")
+    ctx.run("python -m twine upload pyghidra_decaf/dist/*")

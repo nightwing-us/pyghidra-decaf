@@ -32,6 +32,3 @@ Other dependencies (e.g., pydantic, httpx, starlette, uvicorn,
 setuptools) are MIT- or BSD-licensed and do not require attribution in
 this NOTICE file but their license terms still apply; see the metadata
 in each installed package for details.
-
-This NOTICE is regenerated as part of each release per the workflow
-documented in docs/plans/2026-05-12-oss-release-design.md §3.

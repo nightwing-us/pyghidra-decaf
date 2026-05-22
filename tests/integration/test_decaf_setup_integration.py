@@ -301,41 +301,35 @@ sys.exit(0)
 
 
 # ---------------------------------------------------------------------------
-# JAR Recompilation on Metadata Change (NEW)
+# JAR Recompilation on Metadata Change
 # ---------------------------------------------------------------------------
 #
-# Deviation A: the fixture is COPIED into tmp_path — the checked-in source
-#   under tests/fixtures/ is never mutated.
+# These tests verify that when a plugin's stub metadata changes, pyghidra
+# recompiles the JAR on the next Ghidra start, and that idempotent runs do
+# not trigger spurious recompilation.
 #
-# Deviation B: the fixture has no literal `servicesProvided=[]`.  We instead
-#   mutate `shortDescription='pyghidra_decaf test consumer'` (entrypoints.py
-#   line 41), which IS a present literal and causes the rendered Java stub to
-#   differ.
-#
-# Deviation C: the plan's jar_path = ext_gen_path/'lib'/name.jar is wrong.
-#   The compiled JAR lives in Ghidra's extension_path (only available post-JVM).
-#   The fix uses plugin_version fingerprinting so pyghidra's own
-#   _uninstall_old_plugin removes the stale extension dir on version mismatch.
-#   The integration test validates this by reading extension.properties and
-#   comparing plugin_version between run 1 and run 2 — deterministic, no mtime.
-#
-# Install strategy (root cause 1):
-#   Each probe subprocess uninstalls decaf_test_consumer before installing
-#   from the fixture copy, preventing shadowing by the original editable install.
-#
-# extension.properties path discovery (root cause 2):
-#   pyghidra.start() returns the launcher; after start, launcher.extension_path
-#   is available and gives the exact Ghidra extensions path without guessing.
-#
-# JVM-per-run isolation:
-#   jpype can only start the JVM once per process.  Run 1 and run 2 are
-#   therefore executed as separate subprocess invocations from the pytest test
-#   body, not from within a single probe process.  Each run script installs the
-#   fixture, starts Ghidra, reads extension.properties, and prints a result line
-#   to stdout that the test body parses.
+# Strategy:
+#   - The fixture is COPIED into tmp_path; the checked-in source under
+#     tests/fixtures/ is never mutated.
+#   - Each test mutates the literal `shortDescription=...` in the copy to
+#     produce a different rendered Java stub.
+#   - Recompilation is detected via plugin_version in extension.properties:
+#     the compiled JAR lives in Ghidra's extension_path (only available
+#     post-JVM), so we use plugin_version fingerprinting and let pyghidra's
+#     own _uninstall_old_plugin handle the stale extension dir on version
+#     mismatch. Reading extension.properties is deterministic — no mtime.
+#   - Each probe subprocess uninstalls decaf_test_consumer before installing
+#     from the fixture copy, preventing shadowing by the original editable
+#     install.
+#   - pyghidra.start() returns a launcher whose extension_path attribute
+#     gives the exact Ghidra extensions path without guessing.
+#   - jpype can only start the JVM once per process, so Run 1 and Run 2 are
+#     executed as separate subprocess invocations from the pytest test body,
+#     not from within a single probe process. Each run script installs the
+#     fixture, starts Ghidra, reads extension.properties, and prints a
+#     result line to stdout that the test body parses.
 
 # The literal in the fixture's entrypoints.py that we mutate in the copy.
-# Verified present at entrypoints.py:41.
 _FIXTURE_SHORT_DESC_ORIG = "shortDescription='pyghidra_decaf test consumer'"
 _FIXTURE_SHORT_DESC_CHANGED = "shortDescription='pyghidra_decaf test consumer CHANGED'"
 
@@ -522,11 +516,11 @@ def test_jar_recompiled_when_metadata_changes_without_version_bump(
     if not os.environ.get('GHIDRA_INSTALL_DIR'):
         pytest.skip('GHIDRA_INSTALL_DIR not set')
 
-    # Deviation A: copy fixture — never touch the tracked source.
+    # Copy fixture — never touch the tracked source under tests/fixtures/.
     fixture_copy = tmp_path / 'fixture'
     _shutil.copytree(str(_FIXTURE_DIR), str(fixture_copy))
 
-    # Deviation B: confirm the literal exists in the copy before mutating.
+    # Confirm the literal we plan to mutate exists in the copy.
     entrypoints_copy = fixture_copy / 'src' / 'decaf_test_consumer' / 'entrypoints.py'
     assert _FIXTURE_SHORT_DESC_ORIG in entrypoints_copy.read_text(), (
         f'Literal {_FIXTURE_SHORT_DESC_ORIG!r} not found in fixture copy. '
@@ -550,7 +544,7 @@ def test_jar_recompiled_when_metadata_changes_without_version_bump(
     assert pv1 is not None, f'Run 1: plugin_version not found in stdout:\n{run1.stdout}'
     print(f'Run 1 plugin_version: {pv1!r}')
 
-    # ===== MUTATE: change shortDescription in the copy (deviation B) =====
+    # ===== MUTATE: change shortDescription in the copy =====
     ep_text = entrypoints_copy.read_text()
     ep_mutated = ep_text.replace(_FIXTURE_SHORT_DESC_ORIG, _FIXTURE_SHORT_DESC_CHANGED)
     assert ep_mutated != ep_text, (
@@ -587,7 +581,7 @@ def test_jar_recompiled_when_metadata_changes_without_version_bump(
     # Paranoia: confirm the tracked fixture was not touched.
     checked_in_ep = _FIXTURE_DIR / 'src' / 'decaf_test_consumer' / 'entrypoints.py'
     assert _FIXTURE_SHORT_DESC_CHANGED not in checked_in_ep.read_text(), (
-        'The checked-in fixture was mutated — deviation A violated!'
+        'The checked-in fixture was mutated — copy-on-mutate invariant violated!'
     )
 
 

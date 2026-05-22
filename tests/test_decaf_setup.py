@@ -295,7 +295,7 @@ class TestPluginJavaTemplateServicesAndEvents:
 
 
 class TestStubNeedsRebuild:
-    """Tests for _stub_needs_rebuild() helper function (RED: function doesn't exist yet)."""
+    """Tests for _stub_needs_rebuild() helper function."""
 
     def test_rebuild_needed_when_stub_file_missing(self, tmp_path: Path) -> None:
         """If stub file doesn't exist, rebuild is needed."""
