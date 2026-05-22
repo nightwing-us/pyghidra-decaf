@@ -44,7 +44,7 @@ decaf_load = "pyghidra_decaf.decaf.pyghidra_decaf:decaf_load"
 pyhidra = ["pyhidra"]
 dev = [
     "ghidra-stubs",
-    "pytest>=7.0.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.0.0",
     "mypy>=1.0.0",
     "ruff>=0.0.270",
