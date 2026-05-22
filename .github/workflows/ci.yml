@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e "./pyghidra_decaf[dev]"
+
+      - name: Lint (ruff check)
+        # Scope matches the internal GitLab CI: only `pyghidra_decaf/src/`.
+        # `tests/` has pre-existing lint exceptions; introducing those into
+        # the public CI gate would be out of scope for this release.
+        run: ruff check pyghidra_decaf/src
+
+      - name: Format check (ruff format)
+        run: ruff format --check pyghidra_decaf/src
+
+      - name: Type-check (mypy)
+        run: mypy pyghidra_decaf/src/pyghidra_decaf
+
+      - name: Test (pytest)
+        run: pytest tests/ -m "not ghidra" --tb=short

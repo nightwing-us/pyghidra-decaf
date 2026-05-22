@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "decaf_test_consumer"
+version = "0.0.1"
+description = "Test fixture: minimal decaf consumer plugin for pyghidra_decaf integration tests."
+requires-python = ">=3.10"
+dependencies = ["pyghidra_decaf"]
+
+[project.entry-points."decaf.init"]
+test_consumer = "decaf_test_consumer.entrypoints:init"
+
+[project.entry-points."decaf.load"]
+test_consumer = "decaf_test_consumer.entrypoints:load"
+
+[tool.setuptools.packages.find]
+where = ["src"]
