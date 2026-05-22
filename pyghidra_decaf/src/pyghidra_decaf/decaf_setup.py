@@ -215,7 +215,7 @@ def decaf_setup(launcher: HeadlessLauncher) -> None:
         details = ExtensionDetails(
             name='PyGhidra Decaf',
             description='Enables pure-python Ghidra plugins to be loaded',
-            author='Nightwing',
+            author='Nightwing Group, LLC.',
             version=decaf_version,
         )
 
