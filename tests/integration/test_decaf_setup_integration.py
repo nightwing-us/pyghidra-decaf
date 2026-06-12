@@ -79,12 +79,17 @@ def test_load_entry_points_init_plugin_info_fields(
     )
     assert consumer_ext.author == 'pyghidra_decaf test suite'
     assert consumer_ext.version == '0.0.1'
-    assert len(consumer_ext.plugins) == 1
+    assert len(consumer_ext.plugins) == 2
 
     plugin = consumer_ext.plugins[0]
     assert plugin.class_name == 'TestConsumerPlugin'
     assert plugin.status is PluginStatus.STABLE
     assert plugin.type is PluginType.Plugin
+
+    program_plugin = consumer_ext.plugins[1]
+    assert program_plugin.class_name == 'TestConsumerProgramPlugin'
+    assert program_plugin.status is PluginStatus.STABLE
+    assert program_plugin.type is PluginType.ProgramPlugin
 
 
 # ---------------------------------------------------------------------------

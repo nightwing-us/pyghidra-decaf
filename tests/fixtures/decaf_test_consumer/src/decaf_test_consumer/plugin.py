@@ -40,3 +40,14 @@ class TestConsumerPlugin:
         if log_path:
             with open(log_path, 'a') as fh:
                 fh.write('init_called\n')
+
+
+class TestConsumerProgramPlugin(TestConsumerPlugin):
+    """Import-less ProgramPlugin variant.
+
+    Exercises the DecafProgramPlugin base-class import path in the e2e compile
+    (the Plugin path is covered by TestConsumerPlugin). Like its parent it
+    declares no plugin_imports, which is the exact shape that regressed.
+    """
+
+    name: str = 'TestConsumerProgramPlugin'

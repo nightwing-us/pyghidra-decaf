@@ -30,6 +30,36 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Dict, Optional
+
+
+def _parse_reported_paths(stdout: str) -> Dict[str, str]:
+    """Extract sentinel-reported paths from a bootstrap subprocess's stdout.
+
+    The runner prints lines of the form ``__DECAF_EXT_PATH__=<path>`` and
+    ``__DECAF_VERSION__=<version>``. Returns a dict with keys ``ext_path`` /
+    ``version`` for whichever sentinels were present (last occurrence wins).
+    """
+    result: Dict[str, str] = {}
+    for line in stdout.splitlines():
+        if line.startswith('__DECAF_EXT_PATH__='):
+            result['ext_path'] = line.split('=', 1)[1].strip()
+        elif line.startswith('__DECAF_VERSION__='):
+            result['version'] = line.split('=', 1)[1].strip()
+    return result
+
+
+def _resolve_extensions_dir(reported: Dict[str, str]) -> Optional[Path]:
+    """Resolve the Ghidra Extensions dir to watch.
+
+    Prefer the path pyghidra itself reported (authoritative on multi-version
+    hosts); fall back to the GHIDRA_INSTALL_DIR name-matching heuristic only
+    when no sentinel was captured (older pyghidra without the reporting hook).
+    """
+    ext = reported.get('ext_path')
+    if ext:
+        return Path(ext)
+    return find_ghidra_extensions_dir()
 
 
 def find_ghidra_extensions_dir() -> Path | None:
@@ -56,9 +86,8 @@ def find_ghidra_extensions_dir() -> Path | None:
     return None
 
 
-def get_extension_dirs() -> set[str]:
-    """Return the names of currently-present Ghidra extension directories."""
-    extensions_dir = find_ghidra_extensions_dir()
+def get_extension_dirs(extensions_dir: Optional[Path]) -> set[str]:
+    """Return the names of extension directories under *extensions_dir*."""
     if extensions_dir is None or not extensions_dir.exists():
         return set()
     return {entry.name for entry in extensions_dir.iterdir() if entry.is_dir()}
@@ -89,7 +118,11 @@ def bootstrap() -> int:
         )
         return 1
 
-    baseline = get_extension_dirs()
+    # Best-effort initial guess; upgraded to pyghidra's authoritative
+    # extension_path as soon as the first run reports it.
+    ext_dir = find_ghidra_extensions_dir()
+    baseline = get_extension_dirs(ext_dir)
+    baseline_dir = ext_dir
     print(f'Ghidra install:      {ghidra_install}')
     print(
         f'Existing extensions: {", ".join(sorted(baseline)) if baseline else "(none)"}',
@@ -102,7 +135,12 @@ def bootstrap() -> int:
         'import sys\n'
         'try:\n'
         '    import pyghidra\n'
-        '    pyghidra.start()\n'
+        '    launcher = pyghidra.start()\n'
+        '    try:\n'
+        '        print(f"__DECAF_EXT_PATH__={launcher.extension_path}")\n'
+        '        print(f"__DECAF_VERSION__={launcher.app_info.version}")\n'
+        '    except Exception as report_err:\n'
+        '        print(f"  (could not report paths: {report_err})", file=sys.stderr)\n'
         'except SystemExit:\n'
         '    raise\n'
         'except BaseException as e:\n'
@@ -112,9 +150,11 @@ def bootstrap() -> int:
     )
 
     max_runs = 3
+    reported_ext_seen = False
+    version_reported = False
     for i in range(1, max_runs + 1):
         print(f'\nBootstrap run {i}/{max_runs}...')
-        before = get_extension_dirs()
+        before = get_extension_dirs(ext_dir)
         proc = subprocess.run(
             [sys.executable, '-c', runner_code],
             env=os.environ.copy(),
@@ -122,7 +162,30 @@ def bootstrap() -> int:
             text=True,
             check=False,
         )
-        after = get_extension_dirs()
+
+        # Adopt pyghidra's authoritative Extensions dir (robust to multiple
+        # co-installed Ghidra versions, where the GHIDRA_INSTALL_DIR name-match
+        # heuristic can resolve to the wrong tree or none).
+        reported = _parse_reported_paths(proc.stdout)
+        if not version_reported and 'version' in reported:
+            print(f'  Ghidra (pyghidra-reported) version: {reported["version"]}')
+            version_reported = True
+        resolved = _resolve_extensions_dir(reported)
+        if 'ext_path' in reported:
+            reported_ext_seen = True
+        if resolved is not None and resolved != ext_dir:
+            print(f'  Using Ghidra-reported extensions dir: {resolved}')
+            ext_dir = resolved
+            # Re-baseline against the authoritative dir so the final
+            # "Compiled" summary is a same-dir diff. Extensions already present
+            # here (including any this run compiled before the dir was known)
+            # count as baseline, not as newly compiled.
+            if baseline_dir != ext_dir:
+                baseline = get_extension_dirs(ext_dir)
+                baseline_dir = ext_dir
+                before = baseline
+
+        after = get_extension_dirs(ext_dir)
         new = after - before
 
         if proc.returncode != 0:
@@ -146,7 +209,22 @@ def bootstrap() -> int:
         if not new and i > 1:
             break
 
-    final = get_extension_dirs()
+    # If we never learned a real Extensions dir — neither pyghidra's report nor
+    # the heuristic — convergence detection was meaningless. Fail loudly rather
+    # than claim success while having watched nothing.
+    if not reported_ext_seen and (ext_dir is None or not ext_dir.exists()):
+        print(
+            'Error: could not determine the Ghidra Extensions directory.\n'
+            f'  GHIDRA_INSTALL_DIR={ghidra_install}\n'
+            '  pyghidra did not report an extension_path and no matching '
+            'directory was found under ~/.config/ghidra or ~/.ghidra.\n'
+            '  On a host with multiple Ghidra versions, ensure pyghidra and '
+            'GHIDRA_INSTALL_DIR point at the same installation.',
+            file=sys.stderr,
+        )
+        return 1
+
+    final = get_extension_dirs(ext_dir)
     compiled = sorted(final - baseline)
     if compiled:
         print(f'\nBootstrap complete. Compiled: {", ".join(compiled)}')

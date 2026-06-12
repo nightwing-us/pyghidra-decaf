@@ -26,14 +26,15 @@ from pyghidra_decaf import decaf_setup
 from pyghidra_decaf.decaf_setup import _load_entry_points
 
 from ..launch import PluginType
+from ._diagnostics import (
+    DecafLoadException,
+    _diagnose_plugin_load_failure,
+)
 from ._jpype_utils import _get_private_class
 from .plugin import (
     DecafLoad,
     DecafPlugin,
 )
-
-
-class DecafLoadException(Exception): ...
 
 
 def _get_plugin_class() -> JClass:
@@ -103,7 +104,17 @@ def decaf_register(plugin_fq_name: str, plugin_class: Type[DecafPlugin]) -> None
                 )
                 plugin_class_name = f'{plugin_class_name}{plugin_entry.python_fq_name}'
                 Msg.info('decaf_register()', f'Trying to load {plugin_class_name}')
-                java_class = _get_private_class(plugin_class_name)
+                try:
+                    java_class = _get_private_class(plugin_class_name)
+                except Exception as load_err:
+                    # A missing plugin class almost always means its generated
+                    # Java stub failed to compile. pyghidra logs compile errors
+                    # only at WARNING and GUI launches discard stdout/stderr, so
+                    # the user just sees an opaque ClassNotFoundException. Recover
+                    # and surface the real javac diagnostic instead.
+                    raise _diagnose_plugin_load_failure(
+                        ext_info.name, plugin_class_name, load_err
+                    ) from load_err
                 Msg.info(
                     'decaf_load.decaf_register()',
                     f'Checking {plugin_entry.type.name} in (ProgramPlugin, Plugin)',

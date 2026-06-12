@@ -10,6 +10,7 @@ from typing import (
     Any,
     Callable,
     cast,
+    Dict,
     List,
     Optional,
     TypeVar,
@@ -19,6 +20,7 @@ from typing import (
 from pyghidra_decaf.launch import (
     DecafExtensionInfo,
     DecafLauncher,
+    DecafPluginInfo,
     DecafSetup,
     PluginType,
 )
@@ -44,6 +46,13 @@ TEntryCallable = TypeVar('TEntryCallable', bound=Callable[..., Any])
 
 
 LoadedPlugins: List[DecafExtensionInfo] = []
+
+# Maps a decaf extension name to the directory holding its generated Java stub(s).
+# Populated during decaf_setup() so the loader (decaf_register) can recover the
+# javac diagnostic when a plugin fails to load — pyghidra logs compile errors
+# only at WARNING and a GUI launch discards them, so the real "cannot find
+# symbol" cause is otherwise invisible. See _diagnose_plugin_load_failure.
+GENERATED_STUB_DIRS: Dict[str, Path] = {}
 
 
 def _load_entry_points(group: str) -> List[TEntryCallable]:
@@ -203,6 +212,30 @@ public final class {class_name} extends Decaf{parent_type} {{
 """
 
 
+def _build_additional_imports(plugin: 'DecafPluginInfo') -> str:
+    """Render the Java ``import …;`` block for a plugin's generated stub.
+
+    Always includes the mandatory Decaf base-class import for the plugin's
+    type, in addition to any imports the plugin itself declares. The block is
+    gated on this combined list — never on ``plugin.plugin_imports`` alone — so
+    the base class the generated ``extends Decaf*`` clause needs is present even
+    when the plugin declares no imports of its own. (Gating on plugin_imports
+    dropped that base import and caused "cannot find symbol: class
+    DecafProgramPlugin" for import-less plugins.)
+    """
+    addl_imports = list(plugin.plugin_imports)
+    if plugin.type == PluginType.ProgramPlugin:
+        addl_imports.append('pyghidra_decaf.jplugin.DecafProgramPlugin')
+    elif plugin.type == PluginType.Plugin:
+        addl_imports.append('pyghidra_decaf.jplugin.DecafPlugin')
+    else:
+        raise ValueError(f'Invalid plugin type ({plugin.type})')
+
+    if not addl_imports:
+        return ''
+    return 'import ' + ';\nimport '.join(addl_imports) + ';'
+
+
 def decaf_setup(launcher: HeadlessLauncher) -> None:
     logged_messages = ''
     logged_messages += '[decaf] -> decaf_setup()\n'
@@ -235,6 +268,7 @@ def decaf_setup(launcher: HeadlessLauncher) -> None:
             ext_info = plugin_setup(decaf_launcher)
             ext_gen_path = decaf_gen_path / ext_info.name
             ext_gen_path.mkdir(exist_ok=True)
+            GENERATED_STUB_DIRS[ext_info.name] = ext_gen_path
 
             details = ExtensionDetails(
                 name=ext_info.name,
@@ -248,14 +282,6 @@ def decaf_setup(launcher: HeadlessLauncher) -> None:
             any_stub_changed = False
             all_rendered_srcs: List[str] = []
             for plugin in ext_info.plugins:
-                addl_imports = list(plugin.plugin_imports)
-                if plugin.type == PluginType.ProgramPlugin:
-                    addl_imports.append('pyghidra_decaf.jplugin.DecafProgramPlugin')
-                elif plugin.type == PluginType.Plugin:
-                    addl_imports.append('pyghidra_decaf.jplugin.DecafPlugin')
-                else:
-                    raise ValueError(f'Invalid plugin type ({plugin.type})')
-
                 plugin_java_pkg = (
                     f'{ext_info.java_package}.' if ext_info.java_package else ''
                 )
@@ -269,11 +295,7 @@ def decaf_setup(launcher: HeadlessLauncher) -> None:
                     description=plugin.description,
                     class_name=plugin.class_name,
                     parent_type=plugin.type.name,
-                    additional_imports=(
-                        'import ' + ';\nimport '.join(addl_imports) + ';'
-                    )
-                    if plugin.plugin_imports
-                    else '',
+                    additional_imports=_build_additional_imports(plugin),
                     services_provided=(
                         ', '.join(
                             f'{svc_name}.class' for svc_name in plugin.servicesProvided

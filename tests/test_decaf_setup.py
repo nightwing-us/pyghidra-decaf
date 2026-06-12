@@ -13,10 +13,12 @@ import pytest
 
 # Our Libraries
 from pyghidra_decaf.decaf_setup import (
+    _build_additional_imports,
     _load_entry_points,
     plugin_java_template,
 )
 from pyghidra_decaf.launch import (
+    DecafPluginInfo,
     PluginStatus,
     PluginType,
 )
@@ -388,3 +390,47 @@ class TestStubNeedsRebuild:
 
         result = _stub_needs_rebuild(stub_file, new_rendered)
         assert result is True, 'Should rebuild when metadata changes cause stub content to differ'
+
+
+# ---------------------------------------------------------------------------
+# _build_additional_imports — regression guard for the base-class import drop
+# ---------------------------------------------------------------------------
+
+
+def _make_plugin(plugin_type: PluginType, imports=()) -> DecafPluginInfo:
+    return DecafPluginInfo(
+        type=plugin_type,
+        qualname='Foo',
+        class_name='Foo',
+        status=PluginStatus.STABLE,
+        module_name='pkg.mod',
+        category='Test',
+        shortDescription='s',
+        description='d',
+        plugin_imports=tuple(imports),
+    )
+
+
+class TestBuildAdditionalImports:
+    def test_program_plugin_without_imports_still_has_base_class(self) -> None:
+        # The exact regression: a plugin declaring no imports must STILL get its
+        # mandatory base-class import, or the generated `extends Decaf*` clause
+        # fails to compile ("cannot find symbol: class DecafProgramPlugin").
+        result = _build_additional_imports(_make_plugin(PluginType.ProgramPlugin))
+        assert 'import pyghidra_decaf.jplugin.DecafProgramPlugin;' in result
+
+    def test_plugin_without_imports_still_has_base_class(self) -> None:
+        result = _build_additional_imports(_make_plugin(PluginType.Plugin))
+        assert 'import pyghidra_decaf.jplugin.DecafPlugin;' in result
+
+    def test_declared_imports_preserved_alongside_base(self) -> None:
+        result = _build_additional_imports(
+            _make_plugin(PluginType.Plugin, ['ghidra.foo.Bar'])
+        )
+        assert 'import ghidra.foo.Bar;' in result
+        assert 'import pyghidra_decaf.jplugin.DecafPlugin;' in result
+
+    def test_invalid_plugin_type_raises(self) -> None:
+        bad = _make_plugin(PluginType.Plugin)._replace(type='nonsense')
+        with pytest.raises(ValueError):
+            _build_additional_imports(bad)

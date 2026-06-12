@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = "Enables plugins for Ghidra implemented in python."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     {name = "Eric Lin", email = "17968842+anselor@users.noreply.github.com"}
 ]
@@ -126,3 +127,13 @@ max-doc-length = 80
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+
+[tool.coverage.report]
+show_missing = true
+# Lines that only execute under a started JVM (exercised by the e2e job) should
+# not count against the unit-coverage gate.
+exclude_also = [
+    "from ghidra",
+    "from java",
+    "import jpype",
+]

@@ -7,6 +7,7 @@ A Python package for developing plugins for Ghidra without requiring Java develo
 - [Quick Start](#quick-start) — Write your first plugin in 5 minutes
 - [Plugin Development Guide](docs/index.md) — Full API reference and examples
 - [Architecture & Comparison](docs/gap-analysis-ghidra-pyghidra-decaf.md) — Why Decaf exists and how it compares to PyGhidra
+- [Projects using pyghidra-decaf](#projects-using-pyghidra-decaf) — Real-world consumers you can study
 - [Contributing](CONTRIBUTING.md) — How to submit patches
 - [Security](SECURITY.md) — How to report vulnerabilities
 
@@ -118,7 +119,13 @@ pyghidra --gui --install-dir ~/ghidra/ghidra_11_3_2_PUBLIC
 
 When prompted, enable "My Plugin" in File → Install Extensions. You'll see "MyPlugin loaded!" in Ghidra's status bar.
 
-For a complete walkthrough, see [Plugin Development Guide](docs/index.md).
+For a complete walkthrough, see [Plugin Development Guide](docs/index.md). For a full real-world example, see [mcpyghidra](https://github.com/nightwing-us/mcpyghidra) — a published Decaf plugin in active use.
+
+## Projects using pyghidra-decaf
+
+- **[mcpyghidra](https://github.com/nightwing-us/mcpyghidra)** — A Model Context Protocol (MCP) server exposing Ghidra reverse-engineering tools to LLM clients.
+
+Built something with pyghidra-decaf? Open a PR adding it here.
 
 ## Development
 

@@ -127,22 +127,19 @@ class TestFindGhidraExtensionsDir:
 
 class TestGetExtensionDirs:
     def test_returns_empty_set_when_extensions_dir_not_found(self) -> None:
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=None):
-            result = get_extension_dirs()
+        result = get_extension_dirs(None)
         assert result == set()
 
     def test_returns_empty_set_when_extensions_dir_does_not_exist(self, tmp_path: Path) -> None:
         nonexistent = tmp_path / 'does_not_exist' / 'Extensions'
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=nonexistent):
-            result = get_extension_dirs()
+        result = get_extension_dirs(nonexistent)
         assert result == set()
 
     def test_returns_empty_set_when_extensions_dir_is_empty(self, tmp_path: Path) -> None:
         ext_dir = tmp_path / 'Extensions'
         ext_dir.mkdir()
 
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=ext_dir):
-            result = get_extension_dirs()
+        result = get_extension_dirs(ext_dir)
         assert result == set()
 
     def test_returns_present_extension_names(self, tmp_path: Path) -> None:
@@ -150,8 +147,7 @@ class TestGetExtensionDirs:
         ext_dir.mkdir()
         (ext_dir / 'MyExt').mkdir()
 
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=ext_dir):
-            result = get_extension_dirs()
+        result = get_extension_dirs(ext_dir)
         assert result == {'MyExt'}
 
     def test_returns_all_present_extensions(self, tmp_path: Path) -> None:
@@ -161,8 +157,7 @@ class TestGetExtensionDirs:
         (ext_dir / 'ExtB').mkdir()
         (ext_dir / 'ExtC').mkdir()
 
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=ext_dir):
-            result = get_extension_dirs()
+        result = get_extension_dirs(ext_dir)
         assert result == {'ExtA', 'ExtB', 'ExtC'}
 
     def test_filters_out_non_directory_entries(self, tmp_path: Path) -> None:
@@ -172,8 +167,7 @@ class TestGetExtensionDirs:
         # A regular file in the same directory must be ignored
         (ext_dir / 'NotADir').write_text('file content')
 
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=ext_dir):
-            result = get_extension_dirs()
+        result = get_extension_dirs(ext_dir)
         assert result == {'RealExt'}
 
     def test_diff_pattern_supports_convergence_check(self, tmp_path: Path) -> None:
@@ -182,10 +176,9 @@ class TestGetExtensionDirs:
         ext_dir.mkdir()
         (ext_dir / 'Existing').mkdir()
 
-        with patch('pyghidra_decaf.bootstrap.find_ghidra_extensions_dir', return_value=ext_dir):
-            before = get_extension_dirs()
-            (ext_dir / 'NewlyCompiled').mkdir()
-            after = get_extension_dirs()
+        before = get_extension_dirs(ext_dir)
+        (ext_dir / 'NewlyCompiled').mkdir()
+        after = get_extension_dirs(ext_dir)
 
         assert after - before == {'NewlyCompiled'}
         # And once nothing changes, the diff is empty (convergence reached).
